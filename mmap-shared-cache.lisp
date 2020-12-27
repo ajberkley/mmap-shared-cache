@@ -86,7 +86,7 @@
   (cffi:mem-aref addr type index))
 
 (defun ensure-cache-file (filename cache-writer size)
-  (with-mmap-shared-cache (cache-writer filename addr dummy size)))
+  (with-mmap-shared-cache (cache-writer filename addr size)))
 
 (defun test-cached (filename)
   (labels ((store-cached-data (addr size)
