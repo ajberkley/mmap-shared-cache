@@ -46,7 +46,7 @@
   `(with-mmapped-file (,path ,addr ,size t t t t)
      ,@body))
 
-(defmacro with-cache-creation-func ((try-creation-function filename size &optional (must-create-error 'osicat-posix:enoent)) &body body)
+(defmacro with-cache-creation-func ((try-creation-function filename size &key (must-create-error 'osicat-posix:enoent) (sleep-backoff 0.1)) &body body)
   (let ((success (gensym "SUCCESS-"))
         (addr (gensym "ADDR-")))
     `(let ((,success nil))
@@ -60,11 +60,12 @@
                   (,must-create-error ()
                     ;; In this case, we have to attempt to create the file
                     (with-cache-file-for-writing (,filename ,addr ,size)
-                      (funcall ,try-creation-function ,addr ,size)))))
+                      (funcall ,try-creation-function ,addr ,size))))
+             do (when (not ,success) (sleep ,sleep-backoff)))
        (unless ,success (error "Could not create cache file")))))
 
 (defmacro with-mmap-shared-cache ((cache-creator cache-filename addr size) &body body)
-  (alexandria:once-only (cache-filename) ;; this is a mess
+  (alexandria:once-only (cache-filename)
     `(with-cache-creation-func (,cache-creator ,cache-filename ,size)
        (with-mmapped-file (,cache-filename ,addr ,size)
          ,@body))))
