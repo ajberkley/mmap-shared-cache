@@ -21,7 +21,7 @@
          (let* ((size (if (and size create)
                           (progn (osicat-posix:ftruncate fd size) size)
                           (let ((file-size (osicat-posix:stat-size (osicat-posix:fstat fd))))
-                            (when size (assert (= file-size size)))
+                            (when size (assert (>= file-size size)))
                             file-size)))
                 (addr (osicat-posix:mmap (cffi:null-pointer) size
                                          (logior (if input osicat-posix:prot-read 0)
@@ -71,15 +71,13 @@
          ,@body))))
 
 (defun write-vector-to-sap (addr vector type)
-  "Just convenience"
-  (sb-sys:with-pinned-objects (vector)
-    (ecase type
-      ((:uint16 :int16)
-       (sb-kernel::system-area-ub16-copy (sb-sys::vector-sap vector) 0 addr 0 (length vector)))
-      ((:unit32 :int32)
-       (sb-kernel::system-area-ub32-copy (sb-sys::vector-sap vector) 0 addr 0 (length vector)))
-      ((:unit64 :int64 :double)
-       (sb-kernel::system-area-ub64-copy (sb-sys::vector-sap vector) 0 addr 0 (length vector))))))
+  (let ((bit-blitter (ecase (cffi:foreign-type-size type)
+                       (1 #'sb-kernel::system-area-ub8-copy)
+                       (2 #'sb-kernel::system-area-ub16-copy)
+                       (4 #'sb-kernel::system-area-ub32-copy)
+                       (8 #'sb-kernel::system-area-ub64-copy))))
+    (sb-sys:with-pinned-objects (vector)
+      (funcall bit-blitter (sb-sys::vector-sap vector) 0 addr 0 (length vector)))))
 
 (declaim (inline vector-ref-sap))
 (defun vector-ref-sap (addr type index)
