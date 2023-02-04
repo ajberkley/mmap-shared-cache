@@ -70,14 +70,14 @@
        (with-mmapped-file (,cache-filename ,addr ,size)
          ,@body))))
 
+(sb-alien:define-alien-routine ("memcpy" memcpy) sb-alien:void ; BUG: technically returns void*
+  (dest (* char))
+  (src (* char))
+  (n sb-unix::size-t))
+
 (defun write-vector-to-sap (addr vector type)
-  (let ((bit-blitter (ecase (cffi:foreign-type-size type)
-                       (1 #'sb-kernel::system-area-ub8-copy)
-                       (2 #'sb-kernel::system-area-ub16-copy)
-                       (4 #'sb-kernel::system-area-ub32-copy)
-                       (8 #'sb-kernel::system-area-ub64-copy))))
-    (sb-sys:with-pinned-objects (vector)
-      (funcall bit-blitter (sb-sys::vector-sap vector) 0 addr 0 (length vector)))))
+  (sb-sys:with-pinned-objects (vector)
+    (memcpy addr (sb-sys:vector-sap vector) (* (cffi:foreign-type-size type) (length vector)))))
 
 (declaim (inline vector-ref-sap))
 (defun vector-ref-sap (addr type index)
